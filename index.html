@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --sand: #f5f0e8;
+  --sand-dark: #ede7d9;
+  --ink: #1a1a18;
+  --ink-soft: #4a4a44;
+  --ink-muted: #8a8a82;
+  --accent: #c8622a;
+  --accent-light: #f5ece4;
+  --green: #2d6a4f;
+  --green-light: #e8f5ee;
+  --red: #b03a2e;
+  --red-light: #fdf0ed;
+  --border: #ddd8cc;
+  --white: #ffffff;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--sand); color: var(--ink); min-height: 100vh; }
+
+/* Header */
+.site-header {
+  background: var(--ink); padding: 0 2rem;
+  display: flex; align-items: center; height: 52px; gap: 10px;
+}
+.logo-mark {
+  width: 28px; height: 28px; background: var(--accent);
+  border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.logo-mark svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+.site-header h1 { font-family: 'Lora', serif; font-size: 16px; font-weight: 600; color: #fff; }
+.site-header .tagline { font-size: 12px; color: #666; margin-left: 4px; padding-left: 12px; border-left: 1px solid #333; }
+
+/* Layout */
+.page { max-width: 860px; margin: 0 auto; padding: 2.25rem 1.25rem 4rem; }
+
+/* Stepper */
+.stepper { display: flex; align-items: flex-end; margin-bottom: 2.5rem; }
+.step-item { display: flex; align-items: center; gap: 7px; cursor: pointer; padding-bottom: 10px; border-bottom: 2px solid var(--border); transition: border-color 0.2s; flex: 1; }
+.step-item:last-child { flex: none; }
+.step-item.active { border-bottom-color: var(--accent); }
+.step-item.done   { border-bottom-color: var(--green); }
+.step-circle {
+  width: 25px; height: 25px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: var(--ink-muted);
+  flex-shrink: 0; transition: all 0.2s;
+}
+.step-item.active .step-circle { border-color: var(--accent); background: var(--accent); color: #fff; }
+.step-item.done   .step-circle { border-color: var(--green);  background: var(--green);  color: #fff; }
+.step-label { font-size: 12px; font-weight: 500; color: var(--ink-muted); white-space: nowrap; }
+.step-item.active .step-label { color: var(--ink); }
+.step-item.done   .step-label { color: var(--green); }
+.step-connector { flex: 1; height: 1px; background: var(--border); margin: 0 6px 10px; }
+
+/* Panels */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Section heading */
+.section-head { margin-bottom: 1.5rem; }
+.section-head h2 { font-family: 'Lora', serif; font-size: 21px; font-weight: 600; margin-bottom: 5px; }
+.section-head p  { font-size: 13px; color: var(--ink-soft); line-height: 1.65; }
+
+/* Card */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+.card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--sand-dark); }
+
+/* Upload */
+.upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.upload-zone {
+  border: 1.5px dashed var(--border); border-radius: var(--radius);
+  padding: 1.75rem 1rem; text-align: center; cursor: pointer;
+  position: relative; transition: all 0.15s; background: var(--white);
+}
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-light); }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-zone .uz-icon  { font-size: 22px; margin-bottom: 6px; }
+.upload-zone .uz-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.upload-zone .uz-sub   { font-size: 11px; color: var(--ink-muted); }
+.upload-zone.done { border-style: solid; border-color: var(--green); background: var(--green-light); }
+.upload-info { margin-top: 6px; font-size: 11px; }
+
+/* Forms */
+.field-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin-bottom: 5px; margin-top: 14px; }
+.field-label:first-child { margin-top: 0; }
+input[type=text], input[type=email], input[type=password],
+input[type=number], select, textarea {
+  width: 100%; padding: 8px 11px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 13.5px; font-family: inherit;
+  background: var(--white); color: var(--ink); outline: none; transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+.input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  border: 1.5px solid var(--border); background: var(--white); color: var(--ink);
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--sand-dark); border-color: #c0b8a8; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn-primary:hover { background: #2e2e2a; }
+.btn-accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-accent:hover { background: #b05520; border-color: #b05520; }
+.btn-green { background: var(--green); color: #fff; border-color: var(--green); }
+.btn-green:hover { background: #235a40; }
+.btn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
+
+/* Canvas */
+.canvas-container { text-align: center; overflow-x: auto; }
+.canvas-frame { display: inline-block; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: #fff; }
+canvas#mapper  { display: block; max-width: 100%; }
+canvas#preview { display: block; max-width: 100%; border-radius: var(--radius-sm); }
+
+/* Fields table */
+.ftable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ftable th { text-align: left; padding: 7px 9px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); border-bottom: 1px solid var(--sand-dark); background: var(--sand); }
+.ftable td { padding: 5px 7px; border-bottom: 1px solid #f0ece3; vertical-align: middle; }
+.ftable tr:last-child td { border-bottom: none; }
+.ftable tr.active-row td { background: #fef8f4; }
+.ftable input[type=number] { padding: 4px 6px; font-size: 12px; }
+.ftable select { padding: 4px 6px; font-size: 12px; }
+.ftable input[type=color] { width: 34px; height: 26px; border: 1px solid var(--border); padding: 1px; cursor: pointer; border-radius: 4px; }
+.col-name { font-weight: 600; cursor: pointer; }
+.col-name:hover { color: var(--accent); }
+
+/* Chips */
+.chip { display: inline-block; background: var(--sand-dark); color: var(--ink-soft); border-radius: 4px; padding: 2px 7px; font-size: 11px; font-family: monospace; margin: 2px; cursor: pointer; border: 1px solid var(--border); transition: all 0.1s; }
+.chip:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+/* Misc */
+.hint { font-size: 11px; color: var(--ink-muted); margin-top: 5px; line-height: 1.5; }
+.notice { border-radius: var(--radius-sm); padding: 11px 14px; font-size: 12.5px; line-height: 1.75; margin-bottom: 1rem; }
+.notice-amber { background: #fdf7e3; border: 1px solid #e5d080; color: #6b5000; }
+.notice-green { background: var(--green-light); border: 1px solid #9dd4b5; color: #1a4d35; }
+.divider { border: none; border-top: 1px solid var(--sand-dark); margin: 1.1rem 0; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-green { background: var(--green-light); color: var(--green); }
+
+/* Stats */
+.stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 1.25rem; }
+.stat-box { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+.stat-box .val { font-family: 'Lora', serif; font-size: 26px; font-weight: 600; }
+.stat-box .lbl { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+
+/* Progress */
+.progress-track { height: 3px; background: var(--sand-dark); border-radius: 2px; overflow: hidden; margin: 10px 0; }
+.progress-fill  { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+
+/* Log */
+.log-box { background: #1a1a18; color: #a0a098; border-radius: var(--radius-sm); padding: 12px 14px; font-size: 11.5px; font-family: 'Courier New', monospace; max-height: 190px; overflow-y: auto; white-space: pre-wrap; line-height: 1.7; margin-top: 10px; }
+.log-box .ok   { color: #6fcf97; }
+.log-box .err  { color: #eb8b82; }
+.log-box .info { color: #7eb8f7; }
+
+/* Preview nav */
+.preview-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.preview-nav .pn-left { font-size: 13px; color: var(--ink-soft); }
+.nav-group { display: flex; gap: 6px; align-items: center; }
+
+/* Password toggle */
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 40px; }
+.pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--ink-muted); font-size: 14px; padding: 2px; line-height: 1; }
+.pw-toggle:hover { color: var(--ink); }
+
+@media (max-width: 600px) {
+  .upload-row, .input-row, .stats-row { grid-template-columns: 1fr; }
+  .step-label { display: none; }
+  .site-header .tagline { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo-mark">
+    <svg viewBox="0 0 20 20"><path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.5L10 14.5l-4.9 2.7.9-5.5L2 7.8l5.5-.8z"/></svg>
+  </div>
+  <h1>Certificate Generator</h1>
+  <span class="tagline">Bulk certificates, delivered by email</span>
+</header>
+
+<div class="page">
+
+  <div class="stepper" id="stepper">
+    <div class="step-item active" onclick="goStep(0)">
+      <div class="step-circle">1</div><span class="step-label">Upload</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-item" onclick="goStep(1)">
+      <div class="step-circle">2</div><span class="step-label">Position</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-item" onclick="goStep(2)">
+      <div class="step-circle">3</div><span class="step-label">Preview</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-item" onclick="goStep(3)">
+      <div class="step-circle">4</div><span class="step-label">Email</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-item" onclick="goStep(4)">
+      <div class="step-circle">5</div><span class="step-label">Send</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="panel active" id="step0">
+    <div class="section-head">
+      <h2>Start with your files</h2>
+      <p>Upload the certificate image you'd like to use as a template, along with your spreadsheet of recipients.</p>
+    </div>
+
+    <div class="upload-row">
+      <div>
+        <div class="upload-zone" id="zone-template">
+          <input type="file" accept="image/*" onchange="loadTemplate(this)">
+          <div class="uz-icon">🖼</div>
+          <div class="uz-title">Certificate template</div>
+          <div class="uz-sub">PNG or JPG image file</div>
+        </div>
+        <div id="template-info" class="upload-info"></div>
+      </div>
+      <div>
+        <div class="upload-zone" id="zone-excel">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="loadExcel(this)">
+          <div class="uz-icon">📋</div>
+          <div class="uz-title">Recipients list</div>
+          <div class="uz-sub">Excel or CSV — needs Name &amp; Email columns</div>
+        </div>
+        <div id="excel-info" class="upload-info"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.25rem;">
+      <div class="card-title">How it works</div>
+      <div style="font-size:13px; color:var(--ink-soft); line-height:1.9;">
+        After uploading, you'll click directly on the certificate to mark where each piece of text should go — names, colleges, teams, or any other columns you have. You can preview every certificate before anything gets sent out.
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <span></span>
+      <button class="btn btn-primary" onclick="nextStep(0)">Continue &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: POSITION -->
+  <div class="panel" id="step1">
+    <div class="section-head">
+      <h2>Position the text fields</h2>
+      <p>Click anywhere on the certificate to drop the active field. It automatically moves to the next field after each click — or click a column name in the table to select it manually.</p>
+    </div>
+
+    <div class="card">
+      <div class="canvas-container">
+        <div class="canvas-frame">
+          <canvas id="mapper" width="600" height="380"
+            onclick="handleCanvasClick(event)"
+            style="cursor:crosshair;display:block;max-width:100%;"></canvas>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:8px;">Currently placing: <strong id="active-field-label">—</strong></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Field configuration</div>
+      <div style="overflow-x:auto;">
+        <table class="ftable">
+          <thead><tr>
+            <th>Column</th><th>Show</th><th>X</th><th>Y</th><th>Size</th><th>Color</th><th>Align</th>
+          </tr></thead>
+          <tbody id="fields-body"></tbody>
+        </table>
+      </div>
+      <p class="hint">X and Y are pixels relative to the original image size.</p>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(0)">&larr; Back</button>
+      <button class="btn btn-primary" onclick="nextStep(1)">Preview certificates &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: PREVIEW -->
+  <div class="panel" id="step2">
+    <div class="section-head">
+      <h2>Check before you send</h2>
+      <p>Flip through the certificates to make sure everything lands in the right place. Go back and adjust if needed.</p>
+    </div>
+
+    <div class="card">
+      <div class="preview-nav">
+        <span class="pn-left">Showing: <strong id="preview-name">—</strong></span>
+        <div class="nav-group">
+          <button class="btn" onclick="prevPerson()">&larr;</button>
+          <span id="preview-index" style="font-size:12px;color:var(--ink-muted);">1 / 1</span>
+          <button class="btn" onclick="nextPerson()">&rarr;</button>
+        </div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="preview"></canvas>
+      </div>
+      <div style="text-align:center; margin-top:12px;">
+        <button class="btn btn-green" onclick="downloadSample()">&#8595; Download this one</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(1)">&larr; Adjust positions</button>
+      <button class="btn btn-primary" onclick="nextStep(2)">Set up email &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: EMAIL -->
+  <div class="panel" id="step3">
+    <div class="section-head">
+      <h2>Email setup</h2>
+      <p>Enter your Gmail address and app password. These are only used for this session — nothing is stored anywhere after the page closes.</p>
+    </div>
+
+    <div class="notice notice-amber">
+      <strong>Don't have an app password yet?</strong> Go to
+      <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:inherit; font-weight:700;">myaccount.google.com/apppasswords</a>
+      — you'll need 2-step verification enabled. Create one (name it anything), copy the 16 characters, paste it below.
+    </div>
+
+    <div class="card">
+      <div class="card-title">Sender details</div>
+      <div class="input-row">
+        <div>
+          <label class="field-label">Gmail address</label>
+          <input type="email" id="smtp-user" placeholder="you@gmail.com" autocomplete="email">
+        </div>
+        <div>
+          <label class="field-label">Display name</label>
+          <input type="text" id="smtp-from" placeholder="e.g. CodeChef VIT Chennai">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="field-label">App password</label>
+        <div class="pw-wrap">
+          <input type="password" id="smtp-pass" placeholder="xxxx xxxx xxxx xxxx" autocomplete="off">
+          <button type="button" class="pw-toggle" onclick="togglePw()" title="Show / hide">&#128065;</button>
+        </div>
+        <p class="hint">The 16-character code from your Google account. Spaces are fine.</p>
+      </div>
+
+      <hr class="divider">
+
+      <label class="field-label">Email subject</label>
+      <input type="text" id="email-subject" value="Your Certificate is Here!">
+
+      <div style="margin-top:12px;">
+        <label class="field-label">Message</label>
+        <div style="margin-bottom:7px; font-size:11px; color:var(--ink-muted);">
+          Tap a chip to insert a column value at your cursor:&nbsp; <span id="field-tags"></span>
+        </div>
+        <textarea id="email-body" rows="5" style="resize:vertical;">Dear {{Name}},
+
+Congratulations! Please find your certificate attached to this email.
+
+Warm regards,
+{{from_name}}</textarea>
+      </div>
+
+      <hr class="divider">
+
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <button class="btn" onclick="testConnection()" id="test-btn">Test connection</button>
+        <span id="test-result" style="font-size:12px;"></span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(2)">&larr; Back to preview</button>
+      <button class="btn btn-primary" onclick="nextStep(3)">Review and send &rarr;</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: SEND -->
+  <div class="panel" id="step4">
+    <div class="section-head">
+      <h2>Send certificates</h2>
+      <p>Each recipient gets a personalised email with their certificate attached as a PNG image.</p>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="val" id="count-total">0</div>
+        <div class="lbl">Recipients</div>
+      </div>
+      <div class="stat-box">
+        <div class="val" id="count-sent" style="color:var(--green);">0</div>
+        <div class="lbl">Sent</div>
+      </div>
+      <div class="stat-box">
+        <div class="val" id="count-fail" style="color:var(--red);">0</div>
+        <div class="lbl">Failed</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+        <div>
+          <strong id="ready-count">0</strong> certificates ready
+          <p class="hint">Or download all files locally without sending email.</p>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" onclick="downloadAllLocal()">&#8595; Download all</button>
+          <button class="btn btn-accent" id="send-btn" onclick="sendAll()">&#9993; Send all emails</button>
+        </div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="send-progress" style="width:0%"></div>
+      </div>
+      <div class="log-box" id="send-log"><span class="info">Ready — press Send all emails to begin.</span></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="goStep(3)">&larr; Back</button>
+      <span></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+let templateImg  = null;
+let excelData    = [];
+let excelColumns = [];
+let fieldConfigs = [];
+let currentPerson = 0;
+let sent = 0, failed = 0;
+window._activeRow = 0;
+
+function goStep(n) {
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === n));
+  document.querySelectorAll('.step-item').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    const c = s.querySelector('.step-circle');
+    if (i < n)  { s.classList.add('done');   c.textContent = '\u2713'; }
+    else        { c.textContent = i + 1; }
+    if (i === n) s.classList.add('active');
+  });
+  if (n === 2) renderPreview(currentPerson);
+  if (n === 4) initSend();
+}
+
+function nextStep(from) {
+  if (from === 0) {
+    if (!templateImg)      { alert('Please upload a certificate template image first.'); return; }
+    if (!excelData.length) { alert('Please upload your recipients spreadsheet first.');  return; }
+    buildFieldsTable(); drawMapper();
+  }
+  if (from === 1) { currentPerson = 0; }
+  if (from === 2) buildFieldTags();
+  goStep(from + 1);
+}
+
+function loadTemplate(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      templateImg = img;
+      document.getElementById('zone-template').classList.add('done');
+      document.getElementById('template-info').innerHTML =
+        '<span class="badge badge-green">\u2713 ' + file.name + ' \u00b7 ' + img.width + '\u00d7' + img.height + 'px</span>';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadExcel(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data, headers;
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      const lines = e.target.result.split('\n').map(l => l.split(',').map(c => c.trim().replace(/^"|"$/g,'')));
+      headers = lines[0].filter(Boolean);
+      data = lines.slice(1).filter(l => l.some(c => c)).map(l => {
+        const obj = {}; headers.forEach((h, i) => obj[h] = l[i] || ''); return obj;
+      });
+    } else {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      data    = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      headers = data.length ? Object.keys(data[0]) : [];
+    }
+    excelData = data; excelColumns = headers;
+    document.getElementById('zone-excel').classList.add('done');
+    document.getElementById('excel-info').innerHTML =
+      '<span class="badge badge-green">\u2713 ' + file.name + ' \u00b7 ' + data.length + ' rows</span>';
+  };
+  file.name.toLowerCase().endsWith('.csv') ? reader.readAsText(file) : reader.readAsBinaryString(file);
+}
+
+function buildFieldsTable() {
+  const skip = new Set(['email','e-mail','mail','emailid','email id','email address','emailaddress','leader email','member email']);
+  fieldConfigs = excelColumns.map((col, i) => ({
+    col, enabled: !skip.has(col.toLowerCase().trim()),
+    x: templateImg ? Math.round(templateImg.width / 2) : 300,
+    y: templateImg ? 150 + i * 60 : 150 + i * 60,
+    fontSize: 32, color: '#1a1a18', align: 'center'
+  }));
+  window._activeRow = 0;
+  renderFieldsTable(); updateActiveLabel();
+}
+
+function renderFieldsTable() {
+  document.getElementById('fields-body').innerHTML = fieldConfigs.map((f, i) => `
+    <tr class="${i === window._activeRow ? 'active-row' : ''}">
+      <td><span class="col-name" onclick="window._activeRow=${i};renderFieldsTable();updateActiveLabel();">${f.col}</span></td>
+      <td><input type="checkbox" ${f.enabled?'checked':''} onchange="fieldConfigs[${i}].enabled=this.checked;redrawMapper()"></td>
+      <td><input type="number" value="${f.x}" style="width:66px" onchange="fieldConfigs[${i}].x=+this.value;redrawMapper()"></td>
+      <td><input type="number" value="${f.y}" style="width:66px" onchange="fieldConfigs[${i}].y=+this.value;redrawMapper()"></td>
+      <td><input type="number" value="${f.fontSize}" style="width:54px" onchange="fieldConfigs[${i}].fontSize=+this.value;redrawMapper()"></td>
+      <td><input type="color" value="${f.color}" onchange="fieldConfigs[${i}].color=this.value;redrawMapper()"></td>
+      <td><select onchange="fieldConfigs[${i}].align=this.value;redrawMapper()">
+        <option ${f.align==='left'?'selected':''}>left</option>
+        <option ${f.align==='center'?'selected':''}>center</option>
+        <option ${f.align==='right'?'selected':''}>right</option>
+      </select></td>
+    </tr>`).join('');
+}
+
+function updateActiveLabel() {
+  const f = fieldConfigs[window._activeRow];
+  document.getElementById('active-field-label').textContent = f ? f.col : '\u2014';
+}
+
+function drawMapper() {
+  const canvas = document.getElementById('mapper');
+  if (!templateImg) return;
+  const cont  = document.querySelector('.canvas-container');
+  const maxW  = Math.min((cont ? cont.clientWidth : 820) - 2, 820);
+  const scale = Math.min(maxW / templateImg.width, 500 / templateImg.height, 1);
+  canvas.width  = Math.round(templateImg.width  * scale);
+  canvas.height = Math.round(templateImg.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+  fieldConfigs.forEach((f, i) => {
+    if (!f.enabled) return;
+    const sx = f.x * scale, sy = f.y * scale;
+    const active = i === window._activeRow;
+    ctx.save();
+    ctx.strokeStyle = active ? '#c8622a' : '#aaa';
+    ctx.lineWidth = active ? 1.5 : 1;
+    ctx.setLineDash([3,2]);
+    ctx.beginPath();
+    ctx.moveTo(sx-7, sy); ctx.lineTo(sx+7, sy);
+    ctx.moveTo(sx, sy-7); ctx.lineTo(sx, sy+7);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = active ? '#c8622a' : '#aaa';
+    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI*2); ctx.fill();
+    const label = f.col.length > 9 ? f.col.slice(0,8)+'\u2026' : f.col;
+    ctx.font = '600 9px DM Sans,system-ui';
+    const lw = ctx.measureText(label).width;
+    ctx.fillStyle = active ? 'rgba(200,98,42,0.88)' : 'rgba(90,88,80,0.78)';
+    ctx.beginPath(); ctx.roundRect(sx+5, sy-12, lw+8, 13, 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+    ctx.fillText(label, sx+9, sy-2);
+    ctx.restore();
+  });
+  canvas._scale = scale;
+}
+
+function redrawMapper() { drawMapper(); }
+
+function handleCanvasClick(e) {
+  if (!templateImg || !fieldConfigs.length) return;
+  const canvas = document.getElementById('mapper');
+  const rect   = canvas.getBoundingClientRect();
+  const px = Math.round(e.offsetX * (templateImg.width  / rect.width));
+  const py = Math.round(e.offsetY * (templateImg.height / rect.height));
+  fieldConfigs[window._activeRow].x = px;
+  fieldConfigs[window._activeRow].y = py;
+  window._activeRow = (window._activeRow + 1) % fieldConfigs.length;
+  renderFieldsTable(); updateActiveLabel(); drawMapper();
+}
+
+function renderPreview(idx) {
+  if (!templateImg || !excelData.length) return;
+  const person = excelData[idx] || excelData[0];
+  const canvas = document.getElementById('preview');
+  canvas.width  = templateImg.width; canvas.height = templateImg.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(templateImg, 0, 0);
+  fieldConfigs.forEach(f => {
+    if (!f.enabled) return;
+    ctx.save();
+    ctx.font      = `600 ${f.fontSize}px Georgia,'Times New Roman',serif`;
+    ctx.fillStyle = f.color; ctx.textAlign = f.align;
+    ctx.fillText(String(person[f.col] || ''), f.x, f.y);
+    ctx.restore();
+  });
+  const nc = excelColumns.find(c => c.toLowerCase().includes('name'));
+  document.getElementById('preview-name').textContent  = nc ? (person[nc] || 'Unknown') : 'Person ' + (idx+1);
+  document.getElementById('preview-index').textContent = (idx+1) + ' / ' + excelData.length;
+}
+
+function prevPerson() { if (currentPerson > 0)                    { currentPerson--; renderPreview(currentPerson); } }
+function nextPerson() { if (currentPerson < excelData.length - 1) { currentPerson++; renderPreview(currentPerson); } }
+
+function downloadSample() {
+  const a = document.createElement('a');
+  a.href = document.getElementById('preview').toDataURL('image/png');
+  a.download = 'certificate_sample.png'; a.click();
+}
+
+function buildFieldTags() {
+  document.getElementById('field-tags').innerHTML = excelColumns.map(c =>
+    `<span class="chip" onclick="insertTag('{{${c}}}')">{{${c}}}</span>`).join('');
+}
+
+function insertTag(tag) {
+  const ta = document.getElementById('email-body'), p = ta.selectionStart;
+  ta.value = ta.value.slice(0,p) + tag + ta.value.slice(p);
+  ta.focus(); ta.selectionStart = ta.selectionEnd = p + tag.length;
+}
+
+function togglePw() {
+  const i = document.getElementById('smtp-pass');
+  i.type = i.type === 'password' ? 'text' : 'password';
+}
+
+async function testConnection() {
+  const el = document.getElementById('test-result'), btn = document.getElementById('test-btn');
+  btn.disabled = true; el.textContent = 'Checking\u2026'; el.style.color = 'var(--ink-muted)';
+  try {
+    const r = await fetch('/api/ping');
+    if (r.ok) { el.textContent = '\u2713 Connected'; el.style.color = 'var(--green)'; }
+    else       { el.textContent = '\u2717 API error ' + r.status; el.style.color = 'var(--red)'; }
+  } catch { el.textContent = '\u2717 Could not reach API'; el.style.color = 'var(--red)'; }
+  btn.disabled = false;
+}
+
+function initSend() {
+  sent = 0; failed = 0;
+  ['count-total','count-sent','count-fail'].forEach((id,i) =>
+    document.getElementById(id).textContent = i === 0 ? excelData.length : 0);
+  document.getElementById('ready-count').textContent = excelData.length;
+  document.getElementById('send-progress').style.width = '0%';
+  document.getElementById('send-log').innerHTML = '<span class="info">Ready \u2014 press Send all emails to begin.</span>';
+}
+
+function updateCounts() {
+  document.getElementById('count-sent').textContent = sent;
+  document.getElementById('count-fail').textContent = failed;
+}
+
+function log(msg, type='info') {
+  const box = document.getElementById('send-log');
+  box.innerHTML += '\n<span class="' + type + '">' + msg + '</span>';
+  box.scrollTop = box.scrollHeight;
+}
+
+function generateCertificate(person) {
+  const c = document.createElement('canvas');
+  c.width = templateImg.width; c.height = templateImg.height;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(templateImg, 0, 0);
+  fieldConfigs.forEach(f => {
+    if (!f.enabled) return;
+    ctx.save();
+    ctx.font      = `600 ${f.fontSize}px Georgia,'Times New Roman',serif`;
+    ctx.fillStyle = f.color; ctx.textAlign = f.align;
+    ctx.fillText(String(person[f.col] || ''), f.x, f.y);
+    ctx.restore();
+  });
+  return c.toDataURL('image/png').split(',')[1];
+}
+
+async function sendAll() {
+  const gmailUser = document.getElementById('smtp-user').value.trim();
+  const gmailPass = document.getElementById('smtp-pass').value.trim();
+  const fromName  = document.getElementById('smtp-from').value.trim() || 'Certificate System';
+  const subject   = document.getElementById('email-subject').value.trim();
+  const bodyTpl   = document.getElementById('email-body').value;
+
+  if (!gmailUser) { alert('Please enter your Gmail address.'); return; }
+  if (!gmailPass) { alert('Please enter your Gmail app password.'); return; }
+
+  const emailCol = excelColumns.find(c => c.toLowerCase().includes('email') || c.toLowerCase().includes('mail'));
+  const nameCol  = excelColumns.find(c => c.toLowerCase().includes('name'));
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  document.getElementById('send-log').innerHTML = '';
+  log('Checking API\u2026', 'info');
+
+  try {
+    const ping = await fetch('/api/ping');
+    if (!ping.ok) throw new Error();
+    log('API reachable. Starting send\u2026', 'ok');
+  } catch {
+    log('\u2717 Cannot reach /api/ping \u2014 is this deployed on Vercel?', 'err');
+    btn.disabled = false; return;
+  }
+
+  if (!emailCol) {
+    log('\u2717 No email column found. Your columns: ' + excelColumns.join(', '), 'err');
+    log('  Rename it to include the word \u201cemail\u201d and re-upload.', 'err');
+    btn.disabled = false; return;
+  }
+  log('Email column: "' + emailCol + '" \u00b7 Name column: "' + (nameCol || 'not found') + '"', 'info');
+
+  for (let i = 0; i < excelData.length; i++) {
+    const person  = excelData[i];
+    const toEmail = String(person[emailCol] || '').trim();
+    const name    = nameCol ? String(person[nameCol] || '').trim() || ('Person ' + (i+1)) : ('Person ' + (i+1));
+    if (!toEmail) {
+      log('[' + (i+1) + '/' + excelData.length + '] Skipped ' + name + ' \u2014 no email', 'err');
+      failed++; updateCounts(); continue;
+    }
+    let body = bodyTpl.replace(/\{\{from_name\}\}/g, fromName);
+    excelColumns.forEach(c => { body = body.replace(new RegExp('\\{\\{' + c + '\\}\\}', 'g'), person[c] || ''); });
+    const b64 = generateCertificate(person);
+    try {
+      const res  = await fetch('/api/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gmail_user: gmailUser, gmail_pass: gmailPass, from_name: fromName,
+          to_email: toEmail, to_name: name, subject, body,
+          attachment_b64: b64,
+          attachment_name: name.replace(/\s+/g,'_') + '_certificate.png'
+        })
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) { log('[' + (i+1) + '/' + excelData.length + '] \u2713 ' + name + ' <' + toEmail + '>', 'ok'); sent++; }
+      else { log('[' + (i+1) + '/' + excelData.length + '] \u2717 ' + name + ' \u2014 ' + (json.error || 'unknown error'), 'err'); failed++; }
+    } catch { log('[' + (i+1) + '/' + excelData.length + '] \u2717 ' + name + ' \u2014 network error', 'err'); failed++; }
+    updateCounts();
+    document.getElementById('send-progress').style.width = Math.round((i+1)/excelData.length*100) + '%';
+    await new Promise(r => setTimeout(r, 350));
+  }
+  log('\nFinished. Sent: ' + sent + '  Failed: ' + failed, 'info');
+  btn.disabled = false;
+}
+
+async function downloadAllLocal() {
+  if (!templateImg || !excelData.length) { alert('Upload your files first.'); return; }
+  const nc = excelColumns.find(c => c.toLowerCase().includes('name'));
+  for (let i = 0; i < excelData.length; i++) {
+    const person = excelData[i];
+    const name   = (nc ? person[nc] || ('person_' + (i+1)) : ('person_' + (i+1))).toString().replace(/\s+/g,'_');
+    const a = document.createElement('a');
+    a.href = 'data:image/png;base64,' + generateCertificate(person);
+    a.download = name + '_certificate.png'; a.click();
+    await new Promise(r => setTimeout(r, 280));
+  }
+}
+</script>
+</body>
+</html>
